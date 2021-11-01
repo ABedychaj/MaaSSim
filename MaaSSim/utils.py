@@ -280,6 +280,10 @@ def prep_supply_and_demand(_inData, params):
     _inData.platforms.loc[0] = [1, 'Platform', 1]
     return _inData
 
+def prep_supply(_inData, params):
+    _inData.vehicles = generate_vehicles(_inData, params.nV)
+    _inData.vehicles.platform = _inData.vehicles.apply(lambda x: 0, axis=1)
+    return _inData
 
 #################
 # PARALLEL RUNS #
