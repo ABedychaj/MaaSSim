@@ -4,20 +4,20 @@
 # Rafal Kucharski @ TU Delft
 ################################################################################
 
+import json
+import math
+import os
+import random
+
+import networkx as nx
+import numpy as np
+import osmnx as ox
 import pandas as pd
 from dotmap import DotMap
-import math
-import random
-import numpy as np
-import os
-
 from osmnx.distance import get_nearest_node
-import osmnx as ox
-import networkx as nx
-import json
 
-from .traveller import travellerEvent
 from .driver import driverEvent
+from .traveller import travellerEvent
 
 
 def rand_node(df):
@@ -235,12 +235,13 @@ def read_requests_csv(inData, path):
     inData.passengers.platforms = inData.passengers.platforms.apply(lambda x: [0])
     return inData
 
+
 def read_vehicle_positions(inData, path):
     inData.vehicles = pd.read_csv(path, index_col=0)
     return inData
 
 
-def make_config_paths(params, main=None, rel = False):
+def make_config_paths(params, main=None, rel=False):
     # call it whenever you change a city name, or main path
     if main is None:
         if rel:
@@ -252,17 +253,22 @@ def make_config_paths(params, main=None, rel = False):
     else:
         params.paths.main = os.path.abspath(main)  # main repo folder
 
-
     params.paths.data = os.path.join(params.paths.main, 'data')  # data folder (not synced with repo)
     params.paths.params = os.path.join(params.paths.data, 'configs')
     params.paths.postcodes = os.path.join(params.paths.data, 'postcodes',
                                           "PC4_Nederland_2015.shp")  # PCA4 codes shapefile
     params.paths.albatross = os.path.join(params.paths.data, 'albatross')  # albatross data
     params.paths.sblt = os.path.join(params.paths.data, 'sblt')  # sblt results
-    params.paths.G = os.path.join(params.paths.data, 'graphs',
-                                  params.city.split(",")[0] + ".graphml")  # graphml of a current .city
-    params.paths.skim = os.path.join(params.paths.main, 'data', 'graphs', params.city.split(",")[
-        0] + ".csv")  # csv with a skim between the nodes of the .city
+    if isinstance(params.city, list): # city doesn't have to be one city
+        params.paths.G = os.path.join(params.paths.data, 'graphs',
+                                      params.city[0].split(",")[0] + ".graphml")  # graphml of a current .city
+        params.paths.skim = os.path.join(params.paths.main, 'data', 'graphs', params.city[0].split(",")[
+            0] + ".csv")  # csv with a skim between the nodes of the .city
+    else:
+        params.paths.G = os.path.join(params.paths.data, 'graphs',
+                                      params.city.split(",")[0] + ".graphml")  # graphml of a current .city
+        params.paths.skim = os.path.join(params.paths.main, 'data', 'graphs', params.city.split(",")[
+            0] + ".csv")  # csv with a skim between the nodes of the .city
     params.paths.NYC = os.path.join(params.paths.main, 'data',
                                     'fhv_tripdata_2018-01.csv')  # csv with a skim between the nodes of the .city
     return params
@@ -280,10 +286,12 @@ def prep_supply_and_demand(_inData, params):
     _inData.platforms.loc[0] = [1, 'Platform', 1]
     return _inData
 
+
 def prep_supply(_inData, params):
     _inData.vehicles = generate_vehicles(_inData, params.nV)
     _inData.vehicles.platform = _inData.vehicles.apply(lambda x: 0, axis=1)
     return _inData
+
 
 #################
 # PARALLEL RUNS #
