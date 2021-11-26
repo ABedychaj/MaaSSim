@@ -37,7 +37,7 @@ def single_pararun(one_slice, *args):
     _inData.passengers = initialize_df(_inData.passengers)
     _inData.requests = initialize_df(_inData.requests)
     _inData.vehicles = initialize_df(_inData.vehicles)
-
+    
     sim = simulate(inData=_inData, params=_params, logger_level=logging.WARNING)
     sim.dump(dump_id=filename, path = _params.paths.get('dumps', None))  # store results
 
