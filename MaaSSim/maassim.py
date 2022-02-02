@@ -200,6 +200,7 @@ class Simulator:
         # basic checks for results consistency and correctness
         rides = self.runs[0].rides  # vehicles record
         trips = self.runs[0].trips  # travellers record
+        travellers_still_waiting = []
         for i in self.inData.passengers.sample(min(5, self.inData.passengers.shape[0])).index.to_list():
             r = self.inData.requests[self.inData.requests.pax_id == i].iloc[0].squeeze()  # that is his request
             o, d = r['origin'], r['destination']  # his origin and destination
@@ -234,8 +235,12 @@ class Simulator:
                 elif travellerEvent.REJECTS_OFFER.name in trip.event.values:
                     flag = True
                 elif travellerEvent.ARRIVES_AT_PICKUP.name in trip.event.values:
+                    flag = True
+                elif travellerEvent.REQUESTS_RIDE.name in trip.event.values:
                     flag = True  # still to be handled - what happens if traveller waits and simulation is over
+                    travellers_still_waiting.append(trip.pax.iloc[0])
                 try:
+                    self.logger.warning("Travelers still waiting: {}".format(travellers_still_waiting))
                     assert flag is True
                 except AssertionError:
                     print(trip)

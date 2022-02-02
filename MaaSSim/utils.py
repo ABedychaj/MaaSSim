@@ -133,7 +133,7 @@ def save_G(inData, _params, path=None):
     ox.save_graphml(inData.G, filepath=_params.paths.G)
     inData.skim.to_csv(_params.paths.skim, chunksize=20000000)
 
-def generate_platforms(_inData, nM, fares = None, names = None):
+def generate_platforms(_inData, nM, fares = None, names = None, batch_time = None):
     platforms = initialize_df(_inData.platforms)
     for i in range(nM):
         platforms.loc[i] = empty_series(_inData.platforms)
@@ -142,7 +142,13 @@ def generate_platforms(_inData, nM, fares = None, names = None):
         platforms.fare = fares 
     else:
         platforms.fare = 1
-    
+        
+    # set batch time
+    if batch_time is not None and len(batch_time) == nM:
+        platforms.batch_time = batch_time 
+    else:
+        platforms.batch_time = [ None for _ in range(nM) ]    
+        
     # set names
     if names is not None and len(names) == nM:
         platforms.name = names 

@@ -5,10 +5,12 @@
 ################################################################################
 
 
+import random
+
+import simpy
+
 from .driver import driverEvent
 from .traveller import travellerEvent
-import simpy
-import random
 
 
 class PlatformAgent(object):
@@ -72,6 +74,7 @@ class PlatformAgent(object):
         self.resource = simpy.Resource(self.sim.env, capacity=1000)
         self.vehQ = list()  # list of ids of queuing vehicles
         self.reqQ = list()  # list of ids of queuing travellers
+        self.schedQ = list()  # list of scheduled requests
         self.offers = dict()  # list of offers made to travellers
         self.monitor = self.sim.defaults.get('monitor', False)  # do we record queue lengths
         self.Qs = list()
@@ -165,5 +168,3 @@ class PlatformAgent(object):
         # simpax.veh = vehicle  # assigne the vehicle to passenger
 
         veh.requested.succeed()  # raise the revent for vehicle
-
-
