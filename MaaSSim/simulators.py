@@ -117,14 +117,21 @@ def simulate(config="data/config.json", inData=None, params=None, **kwargs):
     inData = prep_shared_rides(inData, params.shareability)  # prepare schedules
 
 
-    sim = Simulator(inData, params=params, **kwargs)  # initialize
 
-    for day in range(params.get('nD', 1)):  # run iterations
+    DFList = [group[1] for group in inData.requests.groupby(inData.requests.tarr.dt.date)]
+    res = []
+    all_passengers = inData.passengers.copy()
+
+    for day in range(len(DFList)):  # run iterations
+        inData.requests = DFList[day]
+        inData.passengers = all_passengers.loc[DFList[day].pax_id]
+        sim = Simulator(inData, params=params, **kwargs)  # initialize
         sim.make_and_run(run_id=day)  # prepare and SIM
         sim.output()  # calc results
+        res.append(sim)
         if sim.functions.f_stop_crit(sim=sim):
             break
-    return sim
+    return res
 
 
 if __name__ == "__main__":
