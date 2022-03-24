@@ -5,25 +5,26 @@
 ################################################################################
 
 
-from dotmap import DotMap
-import pandas as pd
+import logging
 import math
-import networkx as nx
-import simpy
-import time
-import numpy as np
 import os.path
+import sys
+import time
 import zipfile
 from pathlib import Path
 
-from MaaSSim.traveller import PassengerAgent, travellerEvent
-from MaaSSim.driver import VehicleAgent
+import networkx as nx
+import numpy as np
+import pandas as pd
+import simpy
+from dotmap import DotMap
+
 from MaaSSim.decisions import f_dummy_repos, f_match, dummy_False
-from MaaSSim.platform import PlatformAgent
+from MaaSSim.driver import VehicleAgent
 from MaaSSim.performance import kpi_pax, kpi_veh
+from MaaSSim.platform import PlatformAgent
+from MaaSSim.traveller import PassengerAgent, travellerEvent
 from MaaSSim.utils import initialize_df
-import sys
-import logging
 
 DEFAULTS = dict(f_match=f_match,
                 f_driver_learn=dummy_False,  # deprecated
@@ -34,8 +35,7 @@ DEFAULTS = dict(f_match=f_match,
 
                 f_trav_out=dummy_False,
                 f_trav_mode=dummy_False,
-                f_platform_choice = dummy_False,
-
+                f_platform_choice=dummy_False,
 
                 f_stop_crit=dummy_False,
                 f_timeout=None,
@@ -68,7 +68,6 @@ class Simulator:
               'kpi_pax',
               'kpi_veh']
 
-
     def __init__(self, _inData, **kwargs):
         # input
         self.inData = _inData.copy()  # copy of data structure for simulations (copy needed for multi-threading)
@@ -98,7 +97,12 @@ class Simulator:
         self.make_skims()
         self.set_variabilities()
         self.env = simpy.Environment()  # simulation environment init
-        self.t0 = self.inData.requests.treq.min()  # start at the first request time
+
+        if kwargs.get("start_shift_at_midnight", False):
+            self.t0 = self.inData.requests.treq.min().replace(hour=0, minute=0)  # start at midnight
+        else:
+            self.t0 = self.inData.requests.treq.min()  # start at the first request time
+
         self.t1 = 60 * 60 * (self.params.simTime + 2)
 
         self.trips = list()  # report of trips
@@ -170,8 +174,8 @@ class Simulator:
     def output(self, run_id=None):
         # called after the run for refined results
         run_id = self.run_ids[-1] if run_id is None else run_id
-        ret = self.functions.kpi_pax(sim = self, run_id = run_id)
-        veh = self.functions.kpi_veh(sim = self, run_id = run_id)
+        ret = self.functions.kpi_pax(sim=self, run_id=run_id)
+        veh = self.functions.kpi_veh(sim=self, run_id=run_id)
         ret.update(veh)
         self.res[run_id] = DotMap(ret)
 
@@ -222,7 +226,8 @@ class Simulator:
                 if not self.vars.ride:
                     # check travel times
                     try:
-                        length = int(nx.shortest_path_length(self.inData.G, o, d, weight='length') / self.params.speeds.ride)
+                        length = int(
+                            nx.shortest_path_length(self.inData.G, o, d, weight='length') / self.params.speeds.ride)
                     except nx.NetworkXNoPath:
                         print(f"not possible to get {o} to {d}")
                         length = self.skims.ride[o][d]
@@ -275,7 +280,7 @@ class Simulator:
             if results:
                 csv_zip.writestr("{}.csv".format('trips'), self.runs[self.run_ids[-1]].trips.to_csv())
                 csv_zip.writestr("{}.csv".format('rides'), self.runs[self.run_ids[-1]].rides.to_csv())
-                for key in self.res[0].keys():
+                for key in self.res[dump_id].keys():
                     csv_zip.writestr("{}.csv".format(key), self.res[self.run_ids[-1]][key].to_csv())
         return csv_zip
 
@@ -296,8 +301,10 @@ class Simulator:
         # uses distance skim in meters to populate 3 skims used in simulations
         self.skims = DotMap()
         self.skims.dist = self.inData.skim.copy()
-        self.skims.ride = self.skims.dist.divide(self.params.speeds.ride).astype(int).T  # <---- here we have travel time
-        self.skims.walk = self.skims.dist.divide(self.params.speeds.walk).astype(int).T  # <---- here we have travel time
+        self.skims.ride = self.skims.dist.divide(self.params.speeds.ride).astype(
+            int).T  # <---- here we have travel time
+        self.skims.walk = self.skims.dist.divide(self.params.speeds.walk).astype(
+            int).T  # <---- here we have travel time
 
     def timeout(self, n, variability=False):
         # overwrites sim timeout to add potential stochasticity
@@ -319,4 +326,4 @@ class Simulator:
 
     def plot_trip(self, pax_id, run_id=None):
         from MaaSSim.visualizations import plot_trip
-        plot_trip(self,pax_id, run_id = run_id)
+        plot_trip(self, pax_id, run_id=run_id)

@@ -262,7 +262,7 @@ def animate(sim, veh_ids = None, pax_ids = None, do_animation = True):
 
     if do_animation:
         animation = FuncAnimation(fig, anim, frames=veh_routes[veh].shape[0], init_func=init)
-        # animation.save('animation.gif', dpi=300) # to save animation
+        animation.save('animation.gif', dpi=80) # to save animation
         return animation
     else:
         return fig
