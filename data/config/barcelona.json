@@ -1,6 +1,6 @@
 {
   "NAME": "default",
-  "city": "Nootdorp, Netherlands",
+  "city": "Barcelona, Spain",
   "nP": 20,
   "nV": 5,
   "times": {
@@ -17,8 +17,8 @@
   },
   "t0": "17:00",
   "paths": {
-    "G": "../../data/graphs/Nootdorp.graphml",
-    "skim": "../../data/graphs/Nootdorp.csv",
+    "G": "../../data/graphs/Barcelona.graphml",
+    "skim": "../../data/graphs/Barcelona.csv",
     "_ipython_display_": {},
     "_repr_mimebundle_": {},
     "_repr_html_": {},
@@ -79,10 +79,5 @@
   "_repr_jpeg_": {},
   "_repr_latex_": {},
   "_repr_json_": {},
-  "_repr_javascript_": {},
-  "platform_choice": {
-    "Beta_wait": 0.01,
-    "Beta_time": 0.01,
-    "Beta_cost": 0.98
-  }
+  "_repr_javascript_": {}
 }

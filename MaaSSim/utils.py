@@ -4,20 +4,21 @@
 # Rafal Kucharski @ TU Delft
 ################################################################################
 
+import json
+import math
+import os
+import random
+import uuid
+
+import networkx as nx
+import numpy as np
+import osmnx as ox
 import pandas as pd
 from dotmap import DotMap
-import math
-import random
-import numpy as np
-import os
-
 from osmnx.distance import get_nearest_node
-import osmnx as ox
-import networkx as nx
-import json
 
-from .traveller import travellerEvent
 from .driver import driverEvent
+from .traveller import travellerEvent
 
 
 def rand_node(df):
@@ -132,8 +133,31 @@ def save_G(inData, _params, path=None):
     ox.save_graphml(inData.G, filepath=_params.paths.G)
     inData.skim.to_csv(_params.paths.skim, chunksize=20000000)
 
+def generate_platforms(_inData, nM, fares = None, names = None, batch_time = None):
+    platforms = initialize_df(_inData.platforms)
+    for i in range(nM):
+        platforms.loc[i] = empty_series(_inData.platforms)
+    # set fares
+    if fares is not None and len(fares) == nM:
+        platforms.fare = fares 
+    else:
+        platforms.fare = 1
+        
+    # set batch time
+    if batch_time is not None and len(batch_time) == nM:
+        platforms.batch_time = batch_time 
+    else:
+        platforms.batch_time = [ None for _ in range(nM) ]    
+        
+    # set names
+    if names is not None and len(names) == nM:
+        platforms.name = names 
+    else:
+        platforms.name = [ uuid.uuid4() for _ in range(nM) ]
 
-def generate_vehicles(_inData, nV):
+    return platforms
+
+def generate_vehicles_for_platform(_inData, nV, platform_id = 0):
     """
     generates single vehicle (database row with structure defined in DataStructures)
     index is consecutive number if dataframe
@@ -146,11 +170,22 @@ def generate_vehicles(_inData, nV):
 
     vehs = pd.concat(vehs, axis=1, keys=range(1, nV + 1)).T
     vehs.event = driverEvent.STARTS_DAY
-    vehs.platform = 0
+    vehs.platform = platform_id
     vehs.shift_start = 0
     vehs.shift_end = 60 * 60 * 24
     vehs.pos = vehs.pos.apply(lambda x: int(rand_node(_inData.nodes)))
 
+    return vehs
+
+def generate_vehicles(_inData, nV):
+    if len(_inData.platforms) == 0:
+        vehs = generate_vehicles_for_platform(_inData, nV, platform_id = 0)
+    else:
+        vehs = initialize_df(_inData.vehicles)
+        for idx, pltf in _inData.platforms.iterrows():
+            tmp_v = generate_vehicles_for_platform(_inData, nV, platform_id = idx)
+            vehs = vehs.append(tmp_v)
+        vehs.reset_index(drop=True, inplace=True)
     return vehs
 
 
@@ -218,8 +253,10 @@ def generate_demand(_inData, _params=None, avg_speed=False):
     _inData.requests = requests
     _inData.passengers.pos = _inData.requests.origin
 
-    _inData.passengers.platforms = _inData.passengers.platforms.apply(lambda x: [0])
-
+    if _inData.platforms is not None:
+        _inData.passengers.platforms = _inData.passengers.platforms.apply(lambda x: list(_inData.platforms.index))
+    else:
+        _inData.passengers.platforms = _inData.passengers.platforms.apply(lambda x: [0])
     return _inData
 
 
@@ -235,12 +272,13 @@ def read_requests_csv(inData, path):
     inData.passengers.platforms = inData.passengers.platforms.apply(lambda x: [0])
     return inData
 
+
 def read_vehicle_positions(inData, path):
     inData.vehicles = pd.read_csv(path, index_col=0)
     return inData
 
 
-def make_config_paths(params, main=None, rel = False):
+def make_config_paths(params, main=None, rel=False):
     # call it whenever you change a city name, or main path
     if main is None:
         if rel:
@@ -252,17 +290,22 @@ def make_config_paths(params, main=None, rel = False):
     else:
         params.paths.main = os.path.abspath(main)  # main repo folder
 
-
     params.paths.data = os.path.join(params.paths.main, 'data')  # data folder (not synced with repo)
     params.paths.params = os.path.join(params.paths.data, 'configs')
     params.paths.postcodes = os.path.join(params.paths.data, 'postcodes',
                                           "PC4_Nederland_2015.shp")  # PCA4 codes shapefile
     params.paths.albatross = os.path.join(params.paths.data, 'albatross')  # albatross data
     params.paths.sblt = os.path.join(params.paths.data, 'sblt')  # sblt results
-    params.paths.G = os.path.join(params.paths.data, 'graphs',
-                                  params.city.split(",")[0] + ".graphml")  # graphml of a current .city
-    params.paths.skim = os.path.join(params.paths.main, 'data', 'graphs', params.city.split(",")[
-        0] + ".csv")  # csv with a skim between the nodes of the .city
+    if isinstance(params.city, list): # city doesn't have to be one city
+        params.paths.G = os.path.join(params.paths.data, 'graphs',
+                                      params.city[0].split(",")[0] + ".graphml")  # graphml of a current .city
+        params.paths.skim = os.path.join(params.paths.main, 'data', 'graphs', params.city[0].split(",")[
+            0] + ".csv")  # csv with a skim between the nodes of the .city
+    else:
+        params.paths.G = os.path.join(params.paths.data, 'graphs',
+                                      params.city.split(",")[0] + ".graphml")  # graphml of a current .city
+        params.paths.skim = os.path.join(params.paths.main, 'data', 'graphs', params.city.split(",")[
+            0] + ".csv")  # csv with a skim between the nodes of the .city
     params.paths.NYC = os.path.join(params.paths.main, 'data',
                                     'fhv_tripdata_2018-01.csv')  # csv with a skim between the nodes of the .city
     return params
@@ -278,6 +321,16 @@ def prep_supply_and_demand(_inData, params):
 
     _inData.platforms = initialize_df(_inData.platforms)
     _inData.platforms.loc[0] = [1, 'Platform', 1]
+    return _inData
+
+
+def prep_supply(_inData, params):
+    _inData.vehicles = generate_vehicles(_inData, params.nV)
+    _inData.vehicles.platform = _inData.vehicles.apply(lambda x: 0, axis=1)
+    return _inData
+
+def prep_platforms(_inData, params):
+    _inData.platforms = generate_platforms(_inData, params.nM)
     return _inData
 
 

@@ -37,7 +37,7 @@ def single_pararun(one_slice, *args):
     _inData.passengers = initialize_df(_inData.passengers)
     _inData.requests = initialize_df(_inData.requests)
     _inData.vehicles = initialize_df(_inData.vehicles)
-
+    
     sim = simulate(inData=_inData, params=_params, logger_level=logging.WARNING)
     sim.dump(dump_id=filename, path = _params.paths.get('dumps', None))  # store results
 
@@ -116,15 +116,23 @@ def simulate(config="data/config.json", inData=None, params=None, **kwargs):
 
     inData = prep_shared_rides(inData, params.shareability)  # prepare schedules
 
+    # do not touch real inData
+    tmp_inData = inData.copy()
 
-    sim = Simulator(inData, params=params, **kwargs)  # initialize
+    DFList = [group[1] for group in tmp_inData.requests.groupby(tmp_inData.requests.tarr.dt.date)]
+    res = []
+    all_passengers = tmp_inData.passengers.copy()
 
-    for day in range(params.get('nD', 1)):  # run iterations
+    for day in range(len(DFList)):  # run iterations
+        tmp_inData.requests = DFList[day]
+        tmp_inData.passengers = all_passengers.loc[DFList[day].pax_id]
+        sim = Simulator(tmp_inData, params=params, **kwargs)  # initialize
         sim.make_and_run(run_id=day)  # prepare and SIM
         sim.output()  # calc results
+        res.append(sim)
         if sim.functions.f_stop_crit(sim=sim):
             break
-    return sim
+    return res
 
 
 if __name__ == "__main__":
